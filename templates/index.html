@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CargoOpt — Knapsack Cargo Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="bg-orbs">
+  <span class="orb orb1"></span>
+  <span class="orb orb2"></span>
+  <span class="orb orb3"></span>
+</div>
+
+<!-- ROAD SCENE (always visible, truck animates on optimize) -->
+<div class="road-scene" id="roadScene">
+  <div class="road-sky"></div>
+  <div class="mountains">
+    <svg viewBox="0 0 1400 180" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="0,180 120,60 240,140 380,30 520,120 660,50 800,130 940,20 1080,110 1220,40 1400,100 1400,180" fill="#0f1a2e" opacity="0.7"/>
+      <polygon points="0,180 80,90 200,150 340,70 480,140 620,80 760,150 900,60 1040,130 1180,70 1320,120 1400,80 1400,180" fill="#0c1628" opacity="0.5"/>
+    </svg>
+  </div>
+  <div class="road-strip">
+    <div class="dashes" id="dashTrack"></div>
+  </div>
+  <!-- TRUCK SVG -->
+  <div class="truck-wrap" id="truckWrap">
+    <svg class="truck-svg" id="truckSvg" viewBox="0 0 320 100" xmlns="http://www.w3.org/2000/svg">
+      <!-- Trailer -->
+      <rect x="10" y="18" width="200" height="58" rx="5" fill="#1e3a5f" stroke="#22d3ee" stroke-width="1.5"/>
+      <!-- Trailer ribs -->
+      <line x1="60" y1="20" x2="60" y2="74" stroke="#163352" stroke-width="1"/>
+      <line x1="110" y1="20" x2="110" y2="74" stroke="#163352" stroke-width="1"/>
+      <line x1="160" y1="20" x2="160" y2="74" stroke="#163352" stroke-width="1"/>
+      <!-- Cargo items inside (hidden by default, shown on result) -->
+      <g id="cargoBoxes" opacity="0">
+        <rect x="18" y="30" width="30" height="25" rx="2" fill="#0e7490" opacity="0.8"/>
+        <rect x="52" y="30" width="45" height="25" rx="2" fill="#0d9488" opacity="0.8"/>
+        <rect x="101" y="30" width="25" height="25" rx="2" fill="#7c3aed" opacity="0.8"/>
+        <rect x="130" y="30" width="35" height="25" rx="2" fill="#0e7490" opacity="0.8"/>
+        <rect x="169" y="30" width="28" height="25" rx="2" fill="#065f46" opacity="0.8"/>
+        <text x="34" y="47" font-size="9" fill="#cffafe" text-anchor="middle" font-family="monospace">PKG</text>
+        <text x="74" y="47" font-size="9" fill="#ccfbf1" text-anchor="middle" font-family="monospace">MED</text>
+        <text x="113" y="47" font-size="9" fill="#ede9fe" text-anchor="middle" font-family="monospace">EL</text>
+        <text x="147" y="47" font-size="9" fill="#cffafe" text-anchor="middle" font-family="monospace">TOOL</text>
+        <text x="183" y="47" font-size="9" fill="#d1fae5" text-anchor="middle" font-family="monospace">ENG</text>
+      </g>
+      <!-- Cab -->
+      <rect x="205" y="28" width="80" height="48" rx="6" fill="#0e2d4a" stroke="#22d3ee" stroke-width="1.5"/>
+      <!-- Windshield -->
+      <rect x="244" y="32" width="32" height="24" rx="3" fill="#0ea5e9" opacity="0.4"/>
+      <line x1="260" y1="32" x2="260" y2="56" stroke="#0ea5e9" stroke-width="0.8" opacity="0.6"/>
+      <!-- Cab door line -->
+      <line x1="220" y1="36" x2="220" y2="72" stroke="#163352" stroke-width="1"/>
+      <!-- Door handle -->
+      <rect x="213" y="52" width="5" height="2" rx="1" fill="#22d3ee" opacity="0.6"/>
+      <!-- Exhaust stack -->
+      <rect x="282" y="10" width="6" height="20" rx="2" fill="#163352" stroke="#22d3ee" stroke-width="1"/>
+      <!-- Smoke puffs (animated) -->
+      <g id="smokePuffs">
+        <circle class="smoke" cx="285" cy="8" r="4" fill="#94a3b8" opacity="0"/>
+        <circle class="smoke smoke2" cx="288" cy="2" r="3" fill="#94a3b8" opacity="0"/>
+        <circle class="smoke smoke3" cx="283" cy="-3" r="2.5" fill="#94a3b8" opacity="0"/>
+      </g>
+      <!-- Front bumper -->
+      <rect x="281" y="65" width="8" height="10" rx="2" fill="#163352" stroke="#22d3ee" stroke-width="1"/>
+      <!-- Headlight -->
+      <rect x="280" y="55" width="8" height="8" rx="2" fill="#fbbf24" opacity="0.9"/>
+      <ellipse cx="284" cy="59" rx="3" ry="2.5" fill="#fef08a" opacity="0.6"/>
+      <!-- Headlight beam -->
+      <polygon id="headlightBeam" points="288,58 320,45 320,73 288,60" fill="url(#beamGrad)" opacity="0"/>
+      <!-- Wheels -->
+      <circle cx="55" cy="78" r="14" fill="#0f172a" stroke="#334155" stroke-width="2"/>
+      <circle cx="55" cy="78" r="8" fill="#1e293b" stroke="#22d3ee" stroke-width="1"/>
+      <circle cx="55" cy="78" r="3" fill="#22d3ee"/>
+      <circle cx="155" cy="78" r="14" fill="#0f172a" stroke="#334155" stroke-width="2"/>
+      <circle cx="155" cy="78" r="8" fill="#1e293b" stroke="#22d3ee" stroke-width="1"/>
+      <circle cx="155" cy="78" r="3" fill="#22d3ee"/>
+      <circle cx="240" cy="78" r="14" fill="#0f172a" stroke="#334155" stroke-width="2"/>
+      <circle cx="240" cy="78" r="8" fill="#1e293b" stroke="#22d3ee" stroke-width="1"/>
+      <circle cx="240" cy="78" r="3" fill="#22d3ee"/>
+      <!-- Wheel spokes -->
+      <g stroke="#22d3ee" stroke-width="1" opacity="0.5" class="spoke-group" id="spokes1" transform-origin="55 78">
+        <line x1="55" y1="70" x2="55" y2="86"/>
+        <line x1="47" y1="78" x2="63" y2="78"/>
+        <line x1="49.3" y1="72.3" x2="60.7" y2="83.7"/>
+        <line x1="60.7" y1="72.3" x2="49.3" y2="83.7"/>
+      </g>
+      <g stroke="#22d3ee" stroke-width="1" opacity="0.5" class="spoke-group" id="spokes2" transform-origin="155 78">
+        <line x1="155" y1="70" x2="155" y2="86"/>
+        <line x1="147" y1="78" x2="163" y2="78"/>
+        <line x1="149.3" y1="72.3" x2="160.7" y2="83.7"/>
+        <line x1="160.7" y1="72.3" x2="149.3" y2="83.7"/>
+      </g>
+      <g stroke="#22d3ee" stroke-width="1" opacity="0.5" class="spoke-group" id="spokes3" transform-origin="240 78">
+        <line x1="240" y1="70" x2="240" y2="86"/>
+        <line x1="232" y1="78" x2="248" y2="78"/>
+        <line x1="234.3" y1="72.3" x2="245.7" y2="83.7"/>
+        <line x1="245.7" y1="72.3" x2="234.3" y2="83.7"/>
+      </g>
+      <!-- Defs for beam gradient -->
+      <defs>
+        <linearGradient id="beamGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#fef08a" stop-opacity="0.5"/>
+          <stop offset="100%" stop-color="#fef08a" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+    </svg>
+    <!-- Speed lines -->
+    <div class="speed-lines" id="speedLines">
+      <span></span><span></span><span></span><span></span><span></span>
+    </div>
+  </div>
+</div>
+
+<div class="app-shell">
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="brand-icon">
+        <svg viewBox="0 0 36 36" fill="none">
+          <rect x="4" y="10" width="28" height="20" rx="3" stroke="currentColor" stroke-width="2"/>
+          <path d="M12 10V7a2 2 0 012-2h8a2 2 0 012 2v3" stroke="currentColor" stroke-width="2"/>
+          <path d="M4 18h28" stroke="currentColor" stroke-width="1.5" stroke-dasharray="3 2"/>
+          <rect x="14" y="15" width="8" height="6" rx="1" fill="currentColor" opacity=".35"/>
+        </svg>
+      </div>
+      <div>
+        <h1>CargoOpt</h1>
+        <span class="subtitle">0/1 Knapsack · Dynamic Programming</span>
+      </div>
+    </div>
+    <div class="header-badges">
+      <span class="badge">C Backend</span>
+      <span class="badge badge-py">Python Flask</span>
+      <span class="badge badge-dp">DP Algorithm</span>
+    </div>
+  </header>
+
+  <!-- MAIN GRID -->
+  <main class="main-grid">
+
+    <!-- LEFT: Input Panel -->
+    <section class="panel panel-input">
+      <div class="panel-head">
+        <span class="panel-num">01</span>
+        <h2>Add Cargo Item</h2>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label for="itemName">Item Name</label>
+          <input id="itemName" type="text" placeholder="e.g. Engine Parts" autocomplete="off"/>
+        </div>
+      </div>
+      <div class="form-row two-col">
+        <div class="form-group">
+          <label for="itemWeight">Weight (kg)</label>
+          <input id="itemWeight" type="number" placeholder="0" min="1"/>
+        </div>
+        <div class="form-group">
+          <label for="itemProfit">Value (₹)</label>
+          <input id="itemProfit" type="number" placeholder="0" min="1"/>
+        </div>
+      </div>
+      <button class="btn btn-add" id="addBtn" onclick="addItem()">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/></svg>
+        Add to Manifest
+      </button>
+      <div class="divider"></div>
+      <div class="panel-head" style="margin-top:0">
+        <span class="panel-num">02</span>
+        <h2>Vehicle Capacity</h2>
+      </div>
+      <div class="form-group">
+        <label for="capacity">Max Capacity (kg)</label>
+        <input id="capacity" type="number" placeholder="e.g. 50" min="1"/>
+      </div>
+      <button class="btn btn-optimize" id="optimizeBtn" onclick="optimize()">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+        Optimize Cargo
+      </button>
+    </section>
+
+    <!-- CENTER: Table -->
+    <section class="panel panel-table">
+      <div class="panel-head">
+        <span class="panel-num">03</span>
+        <h2>Cargo Manifest</h2>
+        <div class="item-counter" id="itemCounter">0 items</div>
+      </div>
+      <div class="table-wrap">
+        <table id="cargoTable">
+          <thead>
+            <tr><th>#</th><th>Item Name</th><th>Weight</th><th>Value</th><th></th></tr>
+          </thead>
+          <tbody id="cargoBody">
+            <tr class="empty-row" id="emptyRow">
+              <td colspan="5">
+                <div class="empty-state">
+                  <svg viewBox="0 0 48 48" fill="none"><rect x="8" y="14" width="32" height="24" rx="4" stroke="currentColor" stroke-width="2"/><path d="M16 14V11a2 2 0 012-2h12a2 2 0 012 2v3" stroke="currentColor" stroke-width="2"/><path d="M8 24h32" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/></svg>
+                  <p>No cargo items yet.<br/>Add items using the form.</p>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- RIGHT: Results -->
+    <section class="panel panel-results" id="resultsPanel">
+      <div class="panel-head">
+        <span class="panel-num">04</span>
+        <h2>Optimization Result</h2>
+      </div>
+
+      <div class="loader-wrap" id="loaderWrap" style="display:none">
+        <div class="loader-stages" id="loaderStages">
+          <div class="stage active" id="stage1"><span class="stage-dot"></span>Compiling C program</div>
+          <div class="stage" id="stage2"><span class="stage-dot"></span>Building DP table</div>
+          <div class="stage" id="stage3"><span class="stage-dot"></span>Tracing optimal path</div>
+          <div class="stage" id="stage4"><span class="stage-dot"></span>Loading cargo</div>
+        </div>
+      </div>
+
+      <div class="result-placeholder" id="resultPlaceholder">
+        <svg viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="24" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4"/><path d="M22 32l6 6 14-14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <p>Run optimization to see results</p>
+      </div>
+
+      <div id="resultContent" style="display:none">
+        <div class="stat-cards">
+          <div class="stat-card stat-profit">
+            <span class="stat-label">Max Value</span>
+            <span class="stat-value" id="statProfit">—</span>
+          </div>
+          <div class="stat-card stat-weight">
+            <span class="stat-label">Used / Total</span>
+            <span class="stat-value" id="statWeight">—</span>
+          </div>
+          <div class="stat-card stat-items">
+            <span class="stat-label">Items Loaded</span>
+            <span class="stat-value" id="statItems">—</span>
+          </div>
+        </div>
+
+        <div class="capacity-bar-wrap">
+          <div class="capacity-bar-label">
+            <span>Capacity Used</span>
+            <span id="capPct">0%</span>
+          </div>
+          <div class="capacity-bar">
+            <div class="capacity-fill" id="capacityFill"></div>
+            <div class="capacity-glow" id="capacityGlow"></div>
+          </div>
+        </div>
+
+        <div class="selected-items-head">Selected Items</div>
+        <div id="selectedList" class="selected-list"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- DP TABLE -->
+  <section class="panel panel-dp" id="dpSection" style="display:none">
+    <div class="panel-head">
+      <span class="panel-num">05</span>
+      <h2>DP Table Visualization</h2>
+      <span class="dp-hint">Rows = items · Cols = weight capacity</span>
+    </div>
+    <div class="dp-table-wrap" id="dpTableWrap"></div>
+  </section>
+
+  <footer class="app-footer">
+    <span>0/1 Knapsack · C + Flask + JavaScript</span>
+    <span>Mini Project — Dynamic Programming</span>
+  </footer>
+</div>
+
+<div id="toastContainer"></div>
+<script src="/static/script.js"></script>
+</body>
+</html>

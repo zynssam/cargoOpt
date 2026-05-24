@@ -1,0 +1,6 @@
+5 50
+Engine_Parts 10 60
+Medicine 20 100
+Electronics 30 120
+Food_Packages 5 30
+Tools 15 70
